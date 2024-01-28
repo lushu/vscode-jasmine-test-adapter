@@ -1,4 +1,5 @@
 import { ChildProcess, fork } from 'child_process';
+import * as zlib from 'zlib';
 import * as os from 'os';
 import * as fs from 'fs-extra';
 import { fileURLToPath } from 'url';
@@ -168,8 +169,18 @@ export class JasmineAdapter implements TestAdapter, IDisposable {
 			// When running in random order, the same file may have multiple suites emitted
 			// This way the only thing we need to do is just to replace the name
 			// With a shorter one
-			childProcess.on('message', (message: string | JasmineTestSuiteInfo) => {
-
+			childProcess.on('message', (rawMessage: string) => {
+				let message;
+				try {
+					const jsonString = zlib.inflateSync(
+						Buffer.from(rawMessage, 'base64')).toString();
+					message = JSON.parse(jsonString);
+					this.log.info(`get a JSON object for ${message.file}:`,
+						`${rawMessage.length}->${jsonString.length}`);
+				} catch (e) {
+					this.log.debug('get a string message:', rawMessage);
+					message = rawMessage;
+				}
 				if (typeof message === 'string') {
 
 					this.log.info(`Worker: ${message}`);
@@ -185,7 +196,7 @@ export class JasmineAdapter implements TestAdapter, IDisposable {
 					let baseDir = config.specRealDir;
 					if (file.startsWith(config.specDir) && !file.startsWith(config.specRealDir)) {
 						baseDir = config.specDir;
-					} 
+					}
 					message.label = file.replace(baseDir, '').replace(/^\//, '');
 					if (suites[file]) {
 						suites[file].children = suites[file].children.concat(message.children);

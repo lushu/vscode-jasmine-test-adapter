@@ -1,3 +1,4 @@
+import * as zlib from 'zlib';
 import { TestSuiteInfo, TestInfo } from "vscode-test-adapter-api";
 import { Location } from "./patchJasmine";
 
@@ -12,7 +13,7 @@ export class LoadTestsReporter implements jasmine.CustomReporter {
 	}
 
 	constructor(
-		private readonly done: (result: TestSuiteInfo) => void,
+		private readonly done: (result: string) => void,
 		private readonly locations: Map<string, Location>
 	) {
 		this.rootSuite = {
@@ -104,7 +105,10 @@ export class LoadTestsReporter implements jasmine.CustomReporter {
 		if (!this.currentFile) { return; }
 		const doneSuite = this.suiteStack.pop();
 		if (doneSuite) {
-			this.done(doneSuite);
+			const deflated =
+				zlib.deflateSync(JSON.stringify(doneSuite)).toString('base64');
+			// console.log(`Compress suite[${doneSuite.file}] from ${JSON.stringify(doneSuite).length} to ${deflated.length}`);
+			this.done(deflated);
 		}
 	}
 }
